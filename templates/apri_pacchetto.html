@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Pacchetto Aperto</title>
+</head>
+<body>
+    <h1>Hai aperto un pacchetto!</h1>
+    <h3>Carte trovate:</h3>
+
+    <ul>
+        {% for carta in carte %}
+            <li>{{ carta.Nome }} - {{ carta.Rarità }}</li>
+        {% endfor %}
+    </ul>
+
+    <h3>Punti attuali: {{ punti }}</h3>
+
+    <p><a href="/">Torna al menu</a></p>
+</body>
+</html>
