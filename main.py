@@ -1,116 +1,78 @@
+from flask import Flask, render_template, request, redirect, url_for
 import random
 import pandas as pd
-from flask import Flask, render_template
 
 app = Flask(__name__)
-punti = 100
-dati_carte = pd.read_csv('pokemon.csv')
 
-carte_disponibili = []
-for i in range(len(dati_carte)):
-    carta = {'Nome': dati_carte.loc[i, 'Nome'], 'Rarità': dati_carte.loc[i, 'Rarità']}
-    carte_disponibili.append(carta)
-
-probabilita_rarita = {
-    'Comune': 0.70,
-    'Non Comune': 0.20,
+dataframe_pokemon = pd.read_csv('pokemon.csv')
+punti_totali = 100
+probabilita = {
+    'Comune': 0.7,
+    'Non Comune': 0.2,
     'Rara': 0.09,
     'Ultra Rara': 0.01
 }
 
-punti_per_rarita = {
-    'Comune': 1,
-    'Non Comune': 3,
-    'Rara': 6,
-    'Ultra Rara': 15
-}
 
-def leggi_collezione():
-    df = pd.read_csv('collezione.csv')
-    return df.to_dict(orient='records')
-
-
-def scrivi_collezione(collezione):
-    df = pd.DataFrame(collezione)
-    df.to_csv('collezione.csv', index=False)
-
-def calcola_punti(collezione):
-    totale = 0
-    for carta in collezione:
-        rarita = carta['Rarità']
-        totale += punti_per_rarita.get(rarita, 0)
-    return totale
-
-def estrai_carta():
-    rarita_estratta = random.choices(
-        list(probabilita_rarita.keys()),
-        list(probabilita_rarita.values())
-    )[0]
-    
-    carte_possibili = []
-    for carta in carte_disponibili:
-        if carta['Rarità'] == rarita_estratta:
-            carte_possibili.append(carta)
-
-    if carte_possibili:
-        return random.choice(carte_possibili)
-    else:
-        carte_comuni = []
-        for carta in carte_disponibili:
-            if carta['Rarità'] == 'Comune':
-                carte_comuni.append(carta)
-        return random.choice(carte_comuni)
 
 @app.route('/')
-def menu():
-    collezione = leggi_collezione()
-    if not collezione:
-        collezione = [{'Nome': 'Inizio', 'Rarità': 'Comune'}]
-        scrivi_collezione(collezione)
-    return render_template('menu.html', punti=punti)
+def home():
+    return render_template('index.html')
+
+
 
 @app.route('/apri_pacchetto')
 def apri_pacchetto():
-    collezione = leggi_collezione()
-    punti = calcola_punti(collezione)
+    global punti_totali
+    pacchetto = []
+    punti_guadagnati = 0
+    if punti_totali >= 10:
+        punti_totali -= 10
+        for _ in range(5):
+            rarita_casuale = random.choices(list(probabilita.keys()), weights=probabilita.values(), k=1)[0]
+            carta = dataframe_pokemon[dataframe_pokemon['Rarità'] == rarita_casuale].iloc[0].to_dict()
+            pacchetto.append(carta)
 
-    if punti < 10:
-        return render_template('errore.html', messaggio="Non hai abbastanza punti per aprire un pacchetto!")
+            if rarita_casuale == 'Comune':
+                punti_guadagnati += 2
+            elif rarita_casuale == 'Non Comune':
+                punti_guadagnati += 5
+            elif rarita_casuale == 'Rara':
+                punti_guadagnati += 10
+            elif rarita_casuale == 'Ultra Rara':
+                punti_guadagnati += 20
 
-    nuove_carte = []
-    
-    for _ in range(5):
-        carta = estrai_carta()
-        nuove_carte.append({'Nome': carta['Nome'], 'Rarità': carta['Rarità']})
-        punti += punti_per_rarita.get(carta['Rarità'], 0)
+        punti_totali += punti_guadagnati
+        salva_collezione(pacchetto)
+        return render_template('index.html', output=f"Hai guadagnato {punti_guadagnati} punti.", pacchetto=pacchetto)
+    else:
+        return render_template('index.html', output="Non hai abbastanza punti.")
 
-    punti -= 10
 
-    nuova_collezione = collezione + nuove_carte
-
-    scrivi_collezione(nuova_collezione)
-
-    return render_template('apri_pacchetto.html', carte=nuove_carte, punti=calcola_punti(nuova_collezione))
 
 @app.route('/mostra_collezione')
-def mostra_collezione():
-    collezione = leggi_collezione()
-    return render_template('mostra_collezione.html', collezione=collezione)
+def mostra_intera_collezione():
+    try:
+        collezione_completa = pd.read_csv('PACCO.csv').to_dict(orient='records')
+        return render_template('index.html', output="Ecco la tua collezione:", pacchetto=collezione_completa)
+    except FileNotFoundError:
+        return render_template('index.html', output="Nessuna collezione trovata.")
+
+
 
 @app.route('/mostra_punti')
 def mostra_punti():
-    collezione = leggi_collezione()
-    punti = calcola_punti(collezione)
-    return render_template('mostra_punti.html', punti=punti)
+    return render_template('index.html', output=f"Hai {punti_totali} punti.")
 
-@app.route('/salva_collezione')
-def salva_collezione():
-    return render_template('salva_collezione.html')
 
-@app.route('/reset')
-def reset():
-    scrivi_collezione([])
-    return render_template('reset.html')
+
+def salva_collezione(pacchetto):
+    try:
+        collezione = pd.read_csv('PACCO.csv')
+        collezione = pd.concat([collezione, pd.DataFrame(pacchetto)], ignore_index=True)
+    except FileNotFoundError:
+        collezione = pd.DataFrame(pacchetto)
+    collezione.to_csv('PACCO.csv', index=False)
 
 if __name__ == '__main__':
     app.run(debug=True)
