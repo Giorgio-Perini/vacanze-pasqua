@@ -2,10 +2,16 @@ from flask import Flask, render_template, request, redirect, url_for
 import random
 import pandas as pd
 
+
 app = Flask(__name__)
 
+
 dataframe_pokemon = pd.read_csv('pokemon.csv')
+
+
 punti_totali = 100
+
+
 probabilita = {
     'Comune': 0.7,
     'Non Comune': 0.2,
@@ -21,16 +27,20 @@ def home():
 
 
 
-@app.route('/apri_pacchetto')
+@app.route('/apri_pacchetto') # decoratore URL a una funzione
 def apri_pacchetto():
     global punti_totali
     pacchetto = []
     punti_guadagnati = 0
     if punti_totali >= 10:
         punti_totali -= 10
-        for _ in range(5):
-            rarita_casuale = random.choices(list(probabilita.keys()), weights=probabilita.values(), k=1)[0]
-            carta = dataframe_pokemon[dataframe_pokemon['Rarità'] == rarita_casuale].iloc[0].to_dict()
+        for i in range(5):
+
+            rarita_casuale = random.choices(list(probabilita.keys()), weights=probabilita.values(), k=1)[0] #lista punto 0
+
+            carta = dataframe_pokemon[dataframe_pokemon['Rarità'] == rarita_casuale].sample(1).iloc[0].to_dict()
+
+
             pacchetto.append(carta)
 
             if rarita_casuale == 'Comune':
@@ -73,6 +83,8 @@ def salva_collezione(pacchetto):
     except FileNotFoundError:
         collezione = pd.DataFrame(pacchetto)
     collezione.to_csv('PACCO.csv', index=False)
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
